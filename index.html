@@ -1070,13 +1070,13 @@
       return;
     }
     dbApi = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    await refreshProjects();
     dbApi
       .channel(TABLE + "_changes")
       .on("postgres_changes", { event: "*", schema: "public", table: TABLE }, () => {
         refreshProjects();
       })
       .subscribe();
+    await refreshProjects();
   }
 
   async function refreshProjects(){
@@ -1088,9 +1088,16 @@
     }
     if (!data.length && !hasSeeded){
       hasSeeded = true;
-      const { error: seedErr } = await dbApi.from(TABLE).insert([toDbRow(SEED)]);
-      if (seedErr) console.error(seedErr);
-      return; // the insert triggers a realtime change event that re-runs refreshProjects
+      const { data: seeded, error: seedErr } = await dbApi.from(TABLE).insert([toDbRow(SEED)]).select();
+      if (seedErr){
+        console.error(seedErr);
+        showBanner("初始化資料失敗，請重新整理頁面再試一次。");
+        return;
+      }
+      projects = (seeded || []).map(fromDbRow);
+      showBanner("");
+      onDataChanged();
+      return;
     }
     projects = data.map(fromDbRow);
     showBanner("");
@@ -1107,14 +1114,17 @@
   async function createProject(data){
     const { error } = await dbApi.from(TABLE).insert([toDbRow(data)]);
     if (error) throw error;
+    await refreshProjects();
   }
   async function saveProject(id, data){
     const { error } = await dbApi.from(TABLE).update(toDbRow(data)).eq("id", id);
     if (error) throw error;
+    await refreshProjects();
   }
   async function removeProject(id){
     const { error } = await dbApi.from(TABLE).delete().eq("id", id);
     if (error) throw error;
+    await refreshProjects();
   }
 
   /* ================= range handling ================= */
