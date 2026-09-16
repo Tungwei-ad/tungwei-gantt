@@ -738,7 +738,37 @@
 
   @media (max-width:640px){
     .form-grid{grid-template-columns:1fr;}
-    .app{padding:16px;}
+    .app{padding:12px 10px 32px; gap:14px;}
+    .app-header{padding-bottom:12px; gap:10px;}
+    .brand-eyebrow{font-size:9.5px;}
+    .brand-title{font-size:17px;}
+    .btn-primary{padding:8px 13px; font-size:12.5px;}
+
+    .view-tabs{gap:14px;}
+    .view-tab{font-size:12.5px; padding:7px 1px 8px;}
+
+    .controls{padding:10px 10px; gap:10px 14px;}
+    .control-label{font-size:10px;}
+    input[type="month"]{font-size:12px; padding:5px 7px;}
+    .count-readout{margin-left:0; width:100%; order:99;}
+
+    .legend{gap:7px 12px; font-size:11px;}
+
+    .cards-grid{grid-template-columns:1fr;}
+    .card{padding:13px 14px;}
+
+    /* Gantt chrome: smaller type/paddings so more of the timeline fits on screen */
+    .head-corner{font-size:9.5px; padding:6px 8px 7px;}
+    .head-year{font-size:10.5px;}
+    .head-month{font-size:9.5px;}
+    .row-label{padding:7px 8px; gap:4px; min-height:50px;}
+    .row-name{font-size:12px;}
+    .drag-handle{font-size:12px;}
+    .badge, .badge-outline, .badge-stage-done{font-size:9px; padding:1px 5px;}
+    .row-progress{font-size:9.5px;}
+    .row-actions .btn-sm{padding:3px 6px; font-size:10px;}
+    .section-label{font-size:9px; padding:4px 8px;}
+    .bar-drag-tip{font-size:10px;}
   }
 </style>
 </head>
@@ -1243,9 +1273,18 @@
   }
 
   /* ================= gantt rendering ================= */
-  const MONTH_W = 34;
-  const YEAR_W = 64;
-  const LABEL_W = 250;
+  function isMobileViewport(){
+    return window.innerWidth <= 640;
+  }
+  function ganttMetrics(){
+    const mobile = isMobileViewport();
+    return {
+      MONTH_W: mobile ? 22 : 34,
+      YEAR_W: mobile ? 42 : 64,
+      LABEL_W: mobile ? 128 : 250,
+      ROW_MIN_H: mobile ? 50 : 64
+    };
+  }
 
   function buildBuckets(){
     if (granularity === "year"){
@@ -1410,10 +1449,11 @@
       return;
     }
 
+    const metrics = ganttMetrics();
     const isYearMode = granularity === "year";
     const totalCols = buckets.length;
-    const colWidth = isYearMode ? YEAR_W : MONTH_W;
-    grid.style.gridTemplateColumns = LABEL_W + "px repeat(" + totalCols + ", " + colWidth + "px)";
+    const colWidth = isYearMode ? metrics.YEAR_W : metrics.MONTH_W;
+    grid.style.gridTemplateColumns = metrics.LABEL_W + "px repeat(" + totalCols + ", " + colWidth + "px)";
 
     const headerRows = 2;
     const subHeaderH = isYearMode ? 0 : 24;
@@ -1423,7 +1463,7 @@
     [devItems, doneItems].forEach(items => {
       if (!items.length) return;
       rowTemplateParts.push("30px");
-      items.forEach(() => rowTemplateParts.push("minmax(64px, auto)"));
+      items.forEach(() => rowTemplateParts.push("minmax(" + metrics.ROW_MIN_H + "px, auto)"));
     });
     grid.style.gridTemplateRows = rowTemplateParts.join(" ");
 
@@ -2018,6 +2058,21 @@
       c.classList.toggle("active", c === btn);
     });
     renderGantt();
+  });
+
+  /* re-render the gantt on viewport size changes (e.g. phone rotation) so
+     column widths stay matched to the current breakpoint */
+  let resizeTimer = null;
+  let lastMobileState = isMobileViewport();
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      const nowMobile = isMobileViewport();
+      if (nowMobile !== lastMobileState){
+        lastMobileState = nowMobile;
+        if (viewMode === "gantt") renderGantt();
+      }
+    }, 150);
   });
 
   /* ================= boot ================= */
